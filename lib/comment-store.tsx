@@ -3,7 +3,8 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import dayjs from "dayjs";
 import type { TaskAttachment } from "@/lib/mock-data";
-import { currentUser } from "@/lib/access";
+import { useCurrentUser } from "@/lib/acting-user";
+import { useNotify } from "@/lib/notification-store";
 import { projectNameById, taskEntity, truncate, useAuditStore } from "@/lib/audit-store";
 import { useTaskStore, type ActionResult } from "@/lib/task-store";
 import { useProjectStructure } from "@/lib/project-structure";
@@ -48,6 +49,8 @@ const seed: TaskComment[] = [
 ];
 
 export function CommentProvider({ children }: { children: ReactNode }) {
+  const currentUser = useCurrentUser();
+  const notify = useNotify();
   const { tasks } = useTaskStore();
   const { addLog } = useAuditStore();
   const { pmoOf } = useProjectStructure();
@@ -86,6 +89,8 @@ export function CommentProvider({ children }: { children: ReactNode }) {
           taskId,
           `Menambah komentar: "${truncate(c.text || "(hanya lampiran)", 70)}"${attachments.length ? ` (+${attachments.length} lampiran)` : ""}`,
         );
+        const parentPics = task.parentId ? (tasks.find((t) => t.id === task.parentId)?.pics ?? []) : [];
+        notify({ to: { names: [...task.pics, ...parentPics], pmoOfProject: task.projectId }, type: "task_commented", title: `${currentUser.name} berkomentar di “${task.title}”`, body: truncate(c.text || "(hanya lampiran)", 90), link: `/tasks/${task.parentId ?? task.id}` });
         return { ok: true };
       },
       updateComment(id, text) {
@@ -107,7 +112,7 @@ export function CommentProvider({ children }: { children: ReactNode }) {
         return { ok: true };
       },
     };
-  }, [comments, tasks, addLog, pmoOf]);
+  }, [comments, tasks, addLog, pmoOf, currentUser, notify]);
 
   return <CommentStoreContext.Provider value={value}>{children}</CommentStoreContext.Provider>;
 }

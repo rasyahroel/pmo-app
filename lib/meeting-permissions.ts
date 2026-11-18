@@ -9,7 +9,8 @@
 //    yang boleh membuat task induk.
 //
 // PENTING: ini UX di frontend. Backend wajib mengulang pemeriksaan ini di setiap endpoint.
-import { employees, type AppUser, type Member, type Project } from "./mock-data";
+import { type AppUser, type Member, type Project } from "./mock-data";
+import { getEmployees } from "./employee-registry";
 import { canAccessProject, isAdministrator } from "./access";
 import { canManageProject, type PmoLookup } from "./task-permissions";
 import type { MeetingRecord } from "./meeting-store";
@@ -28,8 +29,8 @@ export type MeetingScope = {
 };
 
 function isParticipant(user: AppUser, m: MeetingRecord): boolean {
-  const names = new Set([user.name, ...employees.filter((e) => e.userId === user.id).map((e) => e.name)].map(norm));
-  const empIds = new Set(employees.filter((e) => e.userId === user.id).map((e) => e.id));
+  const names = new Set([user.name, ...getEmployees().filter((e) => e.userId === user.id).map((e) => e.name)].map(norm));
+  const empIds = new Set(getEmployees().filter((e) => e.userId === user.id).map((e) => e.id));
   return m.participants.some((p) => (p.employeeId && empIds.has(p.employeeId)) || (!p.external && names.has(norm(p.name))));
 }
 

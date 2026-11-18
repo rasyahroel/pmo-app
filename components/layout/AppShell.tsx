@@ -2,10 +2,10 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Layout, Menu, Badge, Avatar, Dropdown, Typography, Breadcrumb } from "antd";
+import { App, Layout, Menu, Avatar, Dropdown, Tag, Typography, Breadcrumb } from "antd";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  BellOutlined,
+  CheckOutlined,
   UserOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -14,6 +14,10 @@ import { MENU_CONFIG, findMenuByPath } from "@/lib/menu-config";
 import { MENU_ICONS } from "@/lib/menu-icons";
 import { agi } from "@/app/providers";
 import type { MenuProps } from "antd";
+import NotificationBell from "@/components/notifications/NotificationBell";
+import { useActingUserControls, useCurrentUser } from "@/lib/acting-user";
+import { useMenuAccess } from "@/lib/use-menu-access";
+import { useUserStore } from "@/lib/user-store";
 
 const { Sider, Header, Content } = Layout;
 
@@ -21,8 +25,9 @@ const { Sider, Header, Content } = Layout;
 const STANDALONE_PATHS = ["/login", "/401"];
 const { Text } = Typography;
 
-function toAntdMenuItems(): MenuProps["items"] {
-  return MENU_CONFIG.map((node) => {
+function toAntdMenuItems(canView: (menuKey: string) => boolean): MenuProps["items"] {
+  // Menu yang rolenya tidak punya hak Lihat disembunyikan (matriks Role & Permission).
+  return MENU_CONFIG.filter((node) => canView(node.key)).map((node) => {
     if (node.children) {
       return {
         key: node.path,
@@ -43,7 +48,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const menuItems = useMemo(() => toAntdMenuItems(), []);
+  const access = useMenuAccess();
+  const me = useCurrentUser();
+  const { switchTo } = useActingUserControls();
+  const { users } = useUserStore();
+  const { message } = App.useApp();
+  const menuItems = useMemo(() => toAntdMenuItems((k) => !!access.can(k)), [access]);
   if (STANDALONE_PATHS.includes(pathname)) return <>{children}</>;
   const current = findMenuByPath(pathname);
   const openKey = MENU_CONFIG.find((n) =>
@@ -120,23 +130,47 @@ export default function AppShell({ children }: { children: ReactNode }) {
             <Breadcrumb items={[{ title: "PMO" }, { title: current?.label ?? "" }]} />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-            <Badge count={3} size="small" color={agi[500]}>
-              <BellOutlined style={{ fontSize: 18, color: agi[600] }} />
-            </Badge>
+            <NotificationBell />
             <Dropdown
+              trigger={["click"]}
               menu={{
                 items: [
-                  { key: "profile", label: "Profil" },
+                  { key: "profile", label: "Profil", disabled: true },
+                  { type: "divider" },
+                  {
+                    type: "group",
+                    label: "Simulasi masuk sebagai (belum ada login)",
+                    children: users
+                      .filter((u) => u.active)
+                      .map((u) => ({
+                        key: `as:${u.id}`,
+                        icon: u.id === me.id ? <CheckOutlined /> : undefined,
+                        label: (
+                          <span>
+                            {u.name} <span style={{ color: "#8A90A2", fontSize: 12 }}>· {u.roles.join(", ")}</span>
+                          </span>
+                        ),
+                      })),
+                  },
+                  { type: "divider" },
                   { key: "logout", label: "Keluar" },
                 ],
                 onClick: ({ key }) => {
                   if (key === "logout") router.push("/login");
+                  if (key.startsWith("as:")) {
+                    const u = users.find((x) => `as:${x.id}` === key);
+                    if (u) {
+                      switchTo(u);
+                      message.success(`Sekarang sebagai ${u.name} (${u.roles.join(", ")}).`);
+                    }
+                  }
                 },
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }} aria-label="Menu pengguna">
                 <Avatar size="small" style={{ background: agi[500] }} icon={<UserOutlined />} />
-                <Text style={{ fontSize: 13 }}>Rani Kusuma</Text>
+                <Text style={{ fontSize: 13 }}>{me.name}</Text>
+                <Tag color={agi[100]} style={{ marginInlineEnd: 0, color: agi[800], border: 0 }}>{me.roles[0]}</Tag>
               </div>
             </Dropdown>
           </div>

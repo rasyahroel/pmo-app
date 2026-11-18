@@ -39,8 +39,9 @@ import {
 } from "@ant-design/icons";
 import PageSkeleton from "@/components/layout/PageSkeleton";
 import Markdown, { extractHeadings } from "@/components/library/Markdown";
-import { appUsers } from "@/lib/mock-data";
-import { currentUser, isAdministrator } from "@/lib/access";
+import { useUserStore } from "@/lib/user-store";
+import { isAdministrator } from "@/lib/access";
+import { useCurrentUser } from "@/lib/acting-user";
 import { useLibraryStore, type ArticleInput, type LibraryArticle } from "@/lib/library-store";
 import { LIBRARY_SECTIONS, canViewSection, hasTechnicalAccess, type LibrarySectionKey } from "@/lib/library-permissions";
 
@@ -179,6 +180,8 @@ function LibraryHome({
 export default function LibraryPage() {
   const { message } = App.useApp();
   const store = useLibraryStore();
+  const currentUser = useCurrentUser();
+  const { users } = useUserStore();
   const { articles, techAccessIds, canManage, canManageAccessList } = store;
   const [form] = Form.useForm<FormValues>();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -258,7 +261,7 @@ export default function LibraryPage() {
     label: s.restricted ? `${s.label} (khusus developer)` : s.label,
   }));
 
-  const accessCandidates = appUsers.filter((u) => u.active && !isAdministrator(u));
+  const accessCandidates = users.filter((u) => u.active && !isAdministrator(u));
 
   return (
     <PageSkeleton path="/library">

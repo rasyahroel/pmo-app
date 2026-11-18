@@ -7,6 +7,7 @@ export type MenuNode = {
   path: string;
   description: string;
   children?: MenuNode[];
+  hidden?: boolean; // halaman yang tidak tampil di sidebar (mis. Notifikasi, dibuka dari ikon lonceng)
 };
 
 export const MENU_CONFIG: MenuNode[] = [
@@ -94,7 +95,22 @@ export const MENU_CONFIG: MenuNode[] = [
   },
 ];
 
+// Halaman tanpa sidebar. Tidak masuk matriks permission (selalu boleh untuk yang sudah masuk).
+export const EXTRA_PAGES: MenuNode[] = [
+  { key: "notifications", label: "Notifikasi", path: "/notifications", description: "Semua pemberitahuan untukmu: penugasan, komentar, review, rapat, dan pengingat.", hidden: true },
+];
+
+/** Kunci menu tingkat atas (kunci di matriks permission) untuk sebuah path. */
+export function menuKeyOfPath(path: string): string | undefined {
+  for (const node of MENU_CONFIG) {
+    if (node.path === path || node.children?.some((c) => c.path === path)) return node.key;
+  }
+  return undefined;
+}
+
 export function findMenuByPath(path: string): MenuNode | undefined {
+  const extra = EXTRA_PAGES.find((n) => n.path === path);
+  if (extra) return extra;
   for (const node of MENU_CONFIG) {
     if (node.path === path) return node;
     if (node.children) {

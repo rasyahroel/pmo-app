@@ -5,14 +5,17 @@ import { ConfigProvider, App as AntdApp } from "antd";
 import NextTopLoader from "nextjs-toploader";
 import type { ReactNode } from "react";
 import AppSplash from "@/components/layout/AppSplash";
+import { ActingUserProvider } from "@/lib/acting-user";
 import { AuditProvider } from "@/lib/audit-store";
 import { CommentProvider } from "@/lib/comment-store";
 import { LibraryProvider } from "@/lib/library-store";
 import { MasterStoreProvider } from "@/lib/master-store";
 import { MeetingProvider } from "@/lib/meeting-store";
+import { NotificationProvider } from "@/lib/notification-store";
 import { ProjectStructureProvider } from "@/lib/project-structure";
 import { TaskStoreProvider } from "@/lib/task-store";
 import { TestStoreProvider } from "@/lib/test-store";
+import { UserStoreProvider } from "@/lib/user-store";
 
 // AGI brand palette (Bank Artha Graha Internasional) — sky-blue/teal family,
 // taken from the org's own Tailwind tokens (agi-50 .. agi-950). Deliberately
@@ -71,22 +74,28 @@ export default function Providers({ children }: { children: ReactNode }) {
           <AppSplash />
           <NextTopLoader color={agi[400]} showSpinner={false} height={3} />
           {/* Urutan penting: provider yang dipakai provider lain harus berada di luarnya.
-              Audit & ProjectStructure -> Master -> Task -> Comment & Meeting -> Library */}
-          <AuditProvider>
-            <ProjectStructureProvider>
-              <MasterStoreProvider>
-                <TaskStoreProvider>
-                  <CommentProvider>
-                    <MeetingProvider>
-                      <TestStoreProvider>
-                        <LibraryProvider>{children}</LibraryProvider>
-                      </TestStoreProvider>
-                    </MeetingProvider>
-                  </CommentProvider>
-                </TaskStoreProvider>
-              </MasterStoreProvider>
-            </ProjectStructureProvider>
-          </AuditProvider>
+              Acting -> Audit -> User & ProjectStructure -> Notification -> Master -> Task -> Comment & Meeting -> Library */}
+          <ActingUserProvider>
+            <AuditProvider>
+              <UserStoreProvider>
+                <ProjectStructureProvider>
+                  <NotificationProvider>
+                  <MasterStoreProvider>
+                    <TaskStoreProvider>
+                      <CommentProvider>
+                        <MeetingProvider>
+                          <TestStoreProvider>
+                            <LibraryProvider>{children}</LibraryProvider>
+                          </TestStoreProvider>
+                        </MeetingProvider>
+                      </CommentProvider>
+                    </TaskStoreProvider>
+                  </MasterStoreProvider>
+                  </NotificationProvider>
+                </ProjectStructureProvider>
+              </UserStoreProvider>
+            </AuditProvider>
+          </ActingUserProvider>
         </AntdApp>
       </ConfigProvider>
     </AntdRegistry>

@@ -9,21 +9,8 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from "@ant-design/icons";
 import DataTable from "@/components/common/DataTable";
 import PageSkeleton from "@/components/layout/PageSkeleton";
-import {
-  projects as initialProjects,
-  getProjectStatusColor,
-  getPriorityColor,
-  masterDirektorat,
-  getSubditOptions,
-  masterVendors,
-  masterProjectCategories,
-  masterProjectPriorities,
-  type Project,
-  type ProjectStatus,
-  type ProjectCategory,
-  type ProjectPriority,
-  type Phase,
-} from "@/lib/mock-data";
+import { projects as initialProjects, getProjectStatusColor, getPriorityColor, type Project, type ProjectStatus, type ProjectCategory, type ProjectPriority, type Phase } from "@/lib/mock-data";
+import { useMasterLists } from "@/lib/master-store";
 
 const { Text } = Typography;
 
@@ -67,6 +54,7 @@ function makeDefaultPhase(): Phase {
 }
 
 export default function ProjectsPage() {
+  const { masterDirektorat, getSubditOptions, masterVendors, masterProjectCategories, masterProjectPriorities } = useMasterLists();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [open, setOpen] = useState(false);

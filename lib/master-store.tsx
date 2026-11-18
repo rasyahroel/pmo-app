@@ -1,9 +1,24 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { setEmployeeRegistry } from "@/lib/employee-registry";
 import {
   masterMeetingCategories,
   masterTestTypes,
+  masterApprovalLevels,
+  masterDependencySystems,
+  masterDirektorat,
+  masterDocumentTypes,
+  masterProjectCategories,
+  masterProjectPriorities,
+  masterProjectRoles,
+  masterSubdit,
+  masterVendors,
+  employees as seedEmployees,
+  type DocType,
+  type Employee,
+  type ProjectCategory,
+  type ProjectPriority,
   masterTaskCategories,
   masterTaskStatuses,
   type TaskCategoryDef,
@@ -23,6 +38,10 @@ import { deriveStatusStyle, type StatusStyle } from "@/lib/task-ui";
 export type MeetingStatusKind = "planned" | "done" | "cancelled";
 export type MeetingStatusDef = { id: string; name: string; color: string; kind: MeetingStatusKind };
 export type MeetingCategoryDef = { id: string; name: string };
+/** daftar nama sederhana yang dipakai form lain (kunci = nama daftar) */
+export type ListKey = "directorates" | "vendors" | "projectCategories" | "projectPriorities" | "dependencySystems" | "approvalLevels" | "projectRoles";
+export type SubditDef = { directorate: string; subdirectorate: string };
+export type DocTypeDef = { type: string; description: string };
 /** Jenis testing + aturan urutannya. Urutan di daftar = urutan alur pengujian. `type` dipakai sebagai kunci. */
 export type TestTypeDef = { type: string; requiresPrevious: boolean; allowParallel: boolean };
 
@@ -67,6 +86,28 @@ type MasterStore = {
   updateTestType: (type: string, patch: Partial<Omit<TestTypeDef, "type">>) => void;
   deleteTestType: (type: string) => void;
   moveTestType: (type: string, direction: -1 | 1) => void;
+
+  // daftar nama sederhana (Direktorat, Vendor, Kategori/Priority Project, Sistem Dependency, Level Approval, Role Project)
+  lists: Record<ListKey, string[]>;
+  addListItem: (key: ListKey, name: string) => void;
+  renameListItem: (key: ListKey, from: string, to: string) => void;
+  deleteListItem: (key: ListKey, name: string) => void;
+  moveListItem: (key: ListKey, name: string, direction: -1 | 1) => void;
+
+  subdits: SubditDef[];
+  addSubdit: (d: SubditDef) => void;
+  updateSubdit: (from: SubditDef, to: SubditDef) => void;
+  deleteSubdit: (d: SubditDef) => void;
+
+  documentTypes: DocTypeDef[];
+  addDocumentType: (d: DocTypeDef) => void;
+  updateDocumentType: (type: string, patch: Partial<DocTypeDef>) => void;
+  deleteDocumentType: (type: string) => void;
+
+  employees: Employee[];
+  addEmployee: (e: Omit<Employee, "id">) => string;
+  updateEmployee: (id: string, patch: Partial<Omit<Employee, "id">>) => void;
+  deleteEmployee: (id: string) => void;
 };
 
 const Ctx = createContext<MasterStore | null>(null);
@@ -92,6 +133,26 @@ export function MasterStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const [testTypes, setTestTypes] = useState<TestTypeDef[]>(() => masterTestTypes.map((t) => ({ ...t })));
+
+  const [lists, setLists] = useState<Record<ListKey, string[]>>(() => ({
+    directorates: [...masterDirektorat],
+    vendors: [...masterVendors],
+    projectCategories: [...masterProjectCategories],
+    projectPriorities: [...masterProjectPriorities],
+    dependencySystems: [...masterDependencySystems],
+    approvalLevels: [...masterApprovalLevels],
+    projectRoles: [...masterProjectRoles],
+  }));
+  const [subdits, setSubdits] = useState<SubditDef[]>(() => masterSubdit.map((x) => ({ ...x })));
+  const [documentTypes, setDocumentTypes] = useState<DocTypeDef[]>(() => masterDocumentTypes.map((x) => ({ ...x })));
+  const [employees, setEmployeesState] = useState<Employee[]>(() => seedEmployees.map((e) => ({ ...e, roles: [...e.roles] })));
+  const employeesRef = useRef(employees);
+  // semua perubahan pegawai lewat sini: state React + salinan untuk fungsi hak akses
+  const setEmployees = useCallback((fn: (p: Employee[]) => Employee[]) => {
+    employeesRef.current = fn(employeesRef.current);
+    setEmployeeRegistry(employeesRef.current);
+    setEmployeesState(employeesRef.current);
+  }, []);
 
   const value = useMemo<MasterStore>(
     () => ({
@@ -146,8 +207,41 @@ export function MasterStoreProvider({ children }: { children: ReactNode }) {
           [next[i], next[j]] = [next[j], next[i]];
           return next;
         }),
+
+      lists,
+      addListItem: (key, name) => setLists((p) => ({ ...p, [key]: [...p[key], name] })),
+      renameListItem: (key, from, to) => setLists((p) => ({ ...p, [key]: p[key].map((x) => (x === from ? to : x)) })),
+      deleteListItem: (key, name) => setLists((p) => ({ ...p, [key]: p[key].filter((x) => x !== name) })),
+      moveListItem: (key, name, d) =>
+        setLists((p) => {
+          const arr = p[key].slice();
+          const i = arr.indexOf(name);
+          const j = i + d;
+          if (i < 0 || j < 0 || j >= arr.length) return p;
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+          return { ...p, [key]: arr };
+        }),
+
+      subdits,
+      addSubdit: (d) => setSubdits((p) => [...p, d]),
+      updateSubdit: (from, to) => setSubdits((p) => p.map((x) => (x.directorate === from.directorate && x.subdirectorate === from.subdirectorate ? to : x))),
+      deleteSubdit: (d) => setSubdits((p) => p.filter((x) => !(x.directorate === d.directorate && x.subdirectorate === d.subdirectorate))),
+
+      documentTypes,
+      addDocumentType: (d) => setDocumentTypes((p) => [...p, d]),
+      updateDocumentType: (type, patch) => setDocumentTypes((p) => p.map((x) => (x.type === type ? { ...x, ...patch } : x))),
+      deleteDocumentType: (type) => setDocumentTypes((p) => p.filter((x) => x.type !== type)),
+
+      employees,
+      addEmployee: (e) => {
+        const id = newId("emp");
+        setEmployees((p) => [...p, { ...e, id }]);
+        return id;
+      },
+      updateEmployee: (id, patch) => setEmployees((p) => p.map((x) => (x.id === id ? { ...x, ...patch } : x))),
+      deleteEmployee: (id) => setEmployees((p) => p.filter((x) => x.id !== id)),
     }),
-    [taskStatuses, taskCategories, meetingStatuses, meetingCategories, testTypes],
+    [taskStatuses, taskCategories, meetingStatuses, meetingCategories, testTypes, lists, subdits, documentTypes, employees, setEmployees],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -201,4 +295,28 @@ export function useMeetingMeta() {
       firstStatusOfKind: (kind: MeetingStatusKind) => meetingStatuses.find((s) => s.kind === kind)?.id ?? meetingStatuses[0]?.id,
     };
   }, [meetingStatuses, meetingCategories]);
+}
+
+/**
+ * Daftar master dengan NAMA yang sama seperti konstanta di mock-data, supaya form lain cukup
+ * mengganti sumbernya: `const { masterDirektorat, getSubditOptions, ... } = useMasterLists();`
+ */
+export function useMasterLists() {
+  const { lists, subdits, documentTypes, employees } = useMasterStore();
+  return useMemo(
+    () => ({
+      masterDirektorat: lists.directorates,
+      masterVendors: lists.vendors,
+      masterProjectCategories: lists.projectCategories as ProjectCategory[],
+      masterProjectPriorities: lists.projectPriorities as ProjectPriority[],
+      masterDependencySystems: lists.dependencySystems,
+      masterApprovalLevels: lists.approvalLevels,
+      masterProjectRoles: lists.projectRoles,
+      masterSubdit: subdits,
+      masterDocumentTypes: documentTypes as { type: DocType; description: string }[],
+      employees,
+      getSubditOptions: (directorate?: string) => (directorate ? subdits.filter((s) => s.directorate === directorate) : subdits),
+    }),
+    [lists, subdits, documentTypes, employees],
+  );
 }

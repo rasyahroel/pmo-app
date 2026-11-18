@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { Task } from "@/lib/mock-data";
-import { currentUser } from "@/lib/access";
+import { useCurrentUser } from "@/lib/acting-user";
 import { useProjectStructure } from "@/lib/project-structure";
 import { useTaskStore } from "@/lib/task-store";
 import {
@@ -20,6 +20,7 @@ import {
 // Hak akses pengguna yang sedang login, terikat ke data task & PMO terkini — dipakai komponen
 // untuk menyembunyikan/menonaktifkan aksi. Penegakan sebenarnya ada di store (dan nanti backend).
 export function useTaskPermissions() {
+  const currentUser = useCurrentUser();
   const { tasks } = useTaskStore();
   const { pmoOf } = useProjectStructure();
   return useMemo(
@@ -38,6 +39,6 @@ export function useTaskPermissions() {
       canDeleteComment: (author: string, t: Task) => canDeleteComment(currentUser, author, t, pmoOf),
       isPic: (t: Task) => isTaskPic(currentUser, t, tasks),
     }),
-    [tasks, pmoOf],
+    [tasks, pmoOf, currentUser],
   );
 }

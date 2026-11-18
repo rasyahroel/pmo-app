@@ -8,7 +8,8 @@ import "dayjs/locale/id";
 import { Alert, Avatar, Button, Card, DatePicker, Empty, Input, Select, Space, Table, Tag, Tooltip, Typography } from "antd";
 import { DownloadOutlined, LockOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { projects } from "@/lib/mock-data";
-import { currentUser, isAdministrator } from "@/lib/access";
+import { isAdministrator } from "@/lib/access";
+import { useCurrentUser } from "@/lib/acting-user";
 import { useAuditStore, type AuditEntry } from "@/lib/audit-store";
 import { useProjectStructure } from "@/lib/project-structure";
 import { useTaskStore } from "@/lib/task-store";
@@ -45,6 +46,7 @@ type Props = {
 // Tampilan Riwayat Perubahan: hanya baca. Dipakai oleh menu Riwayat Perubahan (semua project yang
 // boleh dilihat) dan tab Riwayat di detail project — satu komponen, satu sumber data, jadi sinkron.
 export default function AuditLogView({ projectId }: Props) {
+  const currentUser = useCurrentUser();
   const { logs } = useAuditStore();
   const { tasks } = useTaskStore();
   const { pmoOf, developersOf } = useProjectStructure();
@@ -66,7 +68,7 @@ export default function AuditLogView({ projectId }: Props) {
       .filter((l) => canViewAuditEntry(currentUser, l, scope))
       .filter((l) => !projectId || entryProjectId(l, projects) === projectId)
       .sort((a, b) => b.changedAt.localeCompare(a.changedAt));
-  }, [logs, tasks, pmoOf, developersOf, projectId]);
+  }, [logs, tasks, pmoOf, developersOf, projectId, currentUser]);
 
   // 2) pilihan filter diturunkan dari data yang boleh dilihat (tidak membocorkan nama lain)
   const actorOptions = useMemo(() => Array.from(new Set(visible.map((l) => l.changedBy))).sort(), [visible]);

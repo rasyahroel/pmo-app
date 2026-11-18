@@ -4,7 +4,7 @@ import { useState } from "react";
 import { App, Avatar, Button, Empty, Input, Popconfirm, Typography } from "antd";
 import { DeleteOutlined, EditOutlined, PaperClipOutlined, SendOutlined } from "@ant-design/icons";
 import type { TaskAttachment } from "@/lib/mock-data";
-import { currentUser } from "@/lib/access";
+import { useCurrentUser } from "@/lib/acting-user";
 import { useCommentStore, useTaskComments } from "@/lib/comment-store";
 import { useTaskStore } from "@/lib/task-store";
 import { useTaskPermissions } from "@/lib/use-task-permissions";
@@ -19,6 +19,7 @@ const fmt = (iso: string) => new Date(iso).toLocaleString("id-ID", { dateStyle: 
 
 // Komentar pada satu task / sub task. Lampiran bisa gambar, PDF/file, atau link.
 export default function TaskComments({ taskId }: { taskId: string }) {
+  const currentUser = useCurrentUser();
   const { message } = App.useApp();
   const { addComment, updateComment, deleteComment } = useCommentStore();
   const { tasks } = useTaskStore();

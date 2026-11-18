@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useTestStore } from "@/lib/test-store";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   Typography, Tag, Progress, Card, Tabs, Table, Space,
   Button, Empty, Avatar, Modal, Form, Select, Input, Switch, DatePicker,
@@ -19,42 +20,9 @@ import dayjs from "dayjs";
 import DataTable from "@/components/common/DataTable";
 import ErrorState from "@/components/common/ErrorState";
 import ProjectTasksPanel from "@/components/tasks/ProjectTasksPanel";
-import {
-  getProjectById,
-  meetings as allMeetings,
-  auditLogs,
-  employees,
-  masterDocumentTypes,
-  masterDirektorat,
-  getSubditOptions,
-  masterVendors,
-  masterProjectCategories,
-  masterProjectPriorities,
-  masterDependencySystems,
-  masterApprovalLevels,
-  getProjectStatusColor,
-  getDocStatusColor,
-  getApprovalStatusColor,
-  getMigrationStatusColor,
-  getReportStatusColor,
-  getTestStatusColor,
-  getCategoryColor,
-  getPriorityColor,
-  type ProjectStatus,
-  type ProjectCategory,
-  type ProjectPriority,
-  type Phase,
-  type DocumentItem,
-  type Approver,
-  type EnvironmentItem,
-  type EnvironmentCategory,
-  type MigrationRecon,
-  type Dependency,
-  type Member,
-  type DocType,
-  type DocStatus,
-} from "@/lib/mock-data";
+import { getProjectById, meetings as allMeetings, auditLogs, getProjectStatusColor, getDocStatusColor, getApprovalStatusColor, getMigrationStatusColor, getReportStatusColor, getTestStatusColor, getCategoryColor, getPriorityColor, type ProjectStatus, type ProjectCategory, type ProjectPriority, type Phase, type DocumentItem, type Approver, type EnvironmentItem, type EnvironmentCategory, type MigrationRecon, type Dependency, type Member, type DocType, type DocStatus } from "@/lib/mock-data";
 import { agi } from "@/app/providers";
+import { useMasterLists } from "@/lib/master-store";
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -173,6 +141,7 @@ function MemberModal({
   onCancel: () => void;
   onSubmit: (values: MemberFormValues) => void;
 }) {
+  const { employees, masterDirektorat, getSubditOptions } = useMasterLists();
   const [form] = Form.useForm<MemberFormValues>();
 
   useEffect(() => {
@@ -286,6 +255,7 @@ const PHASE_STAGE_COLOR: Record<Phase["stage"], string> = {
 };
 
 function PhaseCard({ phase, allPhases, onEdit }: { phase: Phase; allPhases: Phase[]; onEdit: () => void }) {
+  const tests = useTestStore().forPhase(phase.id); // data pengujian dari menu Pengujian (satu sumber)
   const previous = phase.previousPhaseId
     ? allPhases.find((p) => p.id === phase.previousPhaseId)
     : undefined;
@@ -339,8 +309,8 @@ function PhaseCard({ phase, allPhases, onEdit }: { phase: Phase; allPhases: Phas
 
       <Text strong style={{ fontSize: 13 }}>Pengujian</Text>
       <div style={{ margin: "8px 0 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {phase.testStages.length === 0 && <Text type="secondary">Belum ada pengujian.</Text>}
-        {phase.testStages.map((t) => (
+        {tests.length === 0 && <Text type="secondary">Belum ada pengujian.</Text>}
+        {tests.map((t) => (
           <Tag key={t.id} color={getTestStatusColor(t.status)}>
             {t.type} · {t.status} ({t.progressPercent}%) — PIC {t.pic}
           </Tag>
@@ -694,6 +664,7 @@ function DependencyModal({
   onCancel: () => void;
   onSubmit: (values: DependencyFormValues) => void;
 }) {
+  const { masterDependencySystems } = useMasterLists();
   const [form] = Form.useForm<DependencyFormValues>();
 
   useEffect(() => {
@@ -715,7 +686,7 @@ function DependencyModal({
         endpoints: [{ label: "", value: "" }],
       });
     }
-  }, [open, initial, form]);
+  }, [open, initial, form, masterDependencySystems]);
 
   const system = Form.useWatch("system", form);
 
@@ -868,6 +839,7 @@ function DocumentModal({
   onCancel: () => void;
   onSubmit: (values: DocFormValues) => void;
 }) {
+  const { masterDocumentTypes } = useMasterLists();
   const [form] = Form.useForm<DocFormValues>();
 
   useEffect(() => {
@@ -951,6 +923,7 @@ function DocumentModal({
 }
 
 function ApproverAddForm({ onAdd }: { onAdd: (values: { name: string; level: string }) => void }) {
+  const { employees, masterApprovalLevels } = useMasterLists();
   const [name, setName] = useState<string | undefined>(undefined);
   const [level, setLevel] = useState<string | undefined>(undefined);
   return (
@@ -1364,6 +1337,7 @@ function ProjectInfoModal({
   onCancel: () => void;
   onSubmit: (values: ProjectInfoValues) => void;
 }) {
+  const { masterDirektorat, getSubditOptions, masterProjectCategories, masterProjectPriorities } = useMasterLists();
   const [form] = Form.useForm<ProjectInfoValues>();
   const infoDirectorate = Form.useWatch("directorate", form);
 
@@ -1450,6 +1424,7 @@ function VendorPoModal({
   onCancel: () => void;
   onSubmit: (values: VendorPoValues) => void;
 }) {
+  const { masterVendors } = useMasterLists();
   const [form] = Form.useForm<VendorPoValues>();
 
   useEffect(() => {
@@ -1514,8 +1489,13 @@ function GitRepoModal({
 // ---------------------------------------------------------------------------
 
 export default function ProjectDetailPage() {
+  const { employees } = useMasterLists();
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  // dukung deep-link dari halaman lain, mis. /projects/prj-1?tab=dokumen
+  const searchParams = useSearchParams();
+  const [pickedTab, setTab] = useState<string | null>(null);
+  const tab = pickedTab ?? searchParams.get("tab") ?? "overview";
   const project = getProjectById(params.id);
 
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -1905,7 +1885,8 @@ export default function ProjectDetailPage() {
       </Card>
 
       <Tabs
-        defaultActiveKey="overview"
+        activeKey={tab}
+        onChange={setTab}
         items={[
           {
             key: "overview",

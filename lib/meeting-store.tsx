@@ -3,7 +3,8 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import dayjs from "dayjs";
 import { employees, meetings as seedMeetings, projects, type TaskAttachment } from "@/lib/mock-data";
-import { currentUser } from "@/lib/access";
+import { useCurrentUser } from "@/lib/acting-user";
+import { useNotify } from "@/lib/notification-store";
 import { projectNameById, truncate, useAuditStore, type NewAuditEntry } from "@/lib/audit-store";
 import { useMasterStore, useMeetingMeta, useStatusMeta } from "@/lib/master-store";
 import { useProjectStructure } from "@/lib/project-structure";
@@ -151,6 +152,8 @@ function buildSeed(): MeetingRecord[] {
 }
 
 export function MeetingProvider({ children }: { children: ReactNode }) {
+  const currentUser = useCurrentUser();
+  const notify = useNotify();
   const { addTask } = useTaskStore();
   const { addLog } = useAuditStore();
   const { taskCategories } = useMasterStore();
@@ -177,6 +180,13 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
       m.isOnline ? `Online · ${m.meetingUrl ?? "—"}` : `Offline · ${m.location ?? "—"}`;
     const patchOne = (id: string, fn: (m: MeetingRecord) => MeetingRecord) => setAll((prev) => prev.map((m) => (m.id === id ? fn(m) : m)));
     const denyManage = (m: MeetingRecord) => (canManageMeeting(currentUser, m, pmoOf) ? null : ({ ok: false, reason: MEETING_DENY.manage } as const));
+
+    // peserta internal (Master Pegawai / nama) diberi tahu; tamu luar tidak punya akun
+    function notifyPeople(list: Participant[], type: "meeting_invited" | "meeting_changed" | "meeting_cancelled", title: string, body: string) {
+      const internal = list.filter((p) => !p.external);
+      if (internal.length === 0) return;
+      notify({ to: { employeeIds: internal.map((p) => p.employeeId).filter((x): x is string => !!x), names: internal.map((p) => p.name) }, type, title, body, link: "/meetings" });
+    }
 
     function diff(before: MeetingRecord, after: MeetingRecord): NewAuditEntry[] {
       const out: NewAuditEntry[] = [];
@@ -209,6 +219,7 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
         const m: MeetingRecord = { summary: undefined, decisions: undefined, attachments: [], actionItems: [], ...input, id: newId("m"), createdBy: currentUser.id };
         setAll((prev) => [...prev, m]);
         addLog(log(m, "Rapat", "—", `Dibuat · ${fmt(m.startsAt)} · ${modeText(m)}`));
+        notifyPeople(m.participants, "meeting_invited", `Kamu diundang rapat: ${m.title}`, `${fmt(m.startsAt)} · ${modeText(m)}`);
         return { ok: true, id: m.id };
       },
 
@@ -221,6 +232,10 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
         const next: MeetingRecord = { ...cur, ...patch };
         patchOne(id, () => next);
         addLog(diff(cur, next));
+        const cancelled = meta.statusKind(next.statusId) === "cancelled" && meta.statusKind(cur.statusId) !== "cancelled";
+        if (cancelled) notifyPeople(next.participants, "meeting_cancelled", `Rapat dibatalkan: ${next.title}`, `Semula ${fmt(cur.startsAt)}.`);
+        else if (cur.startsAt !== next.startsAt || cur.endsAt !== next.endsAt || modeText(cur) !== modeText(next))
+          notifyPeople(next.participants, "meeting_changed", `Jadwal rapat berubah: ${next.title}`, `${fmt(next.startsAt)} · ${modeText(next)}`);
         return { ok: true, id };
       },
 
@@ -249,6 +264,7 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
         if (added.length) entries.push(log(cur, "Peserta", `${cur.participants.length} orang`, `${clean.length} orang (tambah: ${added.map((p) => p.name).join(", ")})`));
         if (removed.length) entries.push(log(cur, "Peserta", `${cur.participants.length} orang`, `${clean.length} orang (hapus: ${removed.map((p) => p.name).join(", ")})`));
         addLog(entries);
+        notifyPeople(added, "meeting_invited", `Kamu diundang rapat: ${cur.title}`, `${fmt(cur.startsAt)} · ${modeText(cur)}`);
         return { ok: true, count: clean.length };
       },
 
@@ -323,7 +339,7 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
       patchOne(meetingId, (m) => ({ ...m, actionItems: m.actionItems.map((i) => (created[i.id] ? { ...i, taskId: created[i.id] } : i)) }));
       return { ok: true, count, taskId: Object.values(created)[0] };
     }
-  }, [all, addLog, addTask, meta, pmoOf, developersOf, phasesOf, taskCategories, taskStatuses]);
+  }, [all, addLog, addTask, meta, pmoOf, developersOf, phasesOf, taskCategories, taskStatuses, currentUser, notify]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

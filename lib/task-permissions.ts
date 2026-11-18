@@ -15,7 +15,8 @@
 // PENTING: ini hanya UX di frontend. Penegak sebenarnya harus BACKEND (cek di tiap endpoint).
 // Sekarang PIC disimpan sebagai NAMA teks, jadi pencocokan lewat nama; di backend sebaiknya
 // pakai employeeId.
-import { employees, projects, type AppUser, type Member, type Task } from "./mock-data";
+import { projects, type AppUser, type Member, type Task } from "./mock-data";
+import { getEmployees } from "./employee-registry";
 import { canAccessProject, isAdministrator } from "./access";
 
 export type PmoLookup = (projectId: string) => Member[];
@@ -34,12 +35,12 @@ const norm = (s: string) => s.trim().toLowerCase();
 
 function aliasesOf(user: AppUser): Set<string> {
   // nama akun + nama pegawai yang terhubung ke akun ini (Employee.userId)
-  return new Set([user.name, ...employees.filter((e) => e.userId === user.id).map((e) => e.name)].map(norm));
+  return new Set([user.name, ...getEmployees().filter((e) => e.userId === user.id).map((e) => e.name)].map(norm));
 }
 
 /** PMO yang memegang project (rantai: AppUser <- Employee.userId <- Member.employeeId). */
 export function isProjectPmo(user: AppUser, projectId: string, pmoOf: PmoLookup): boolean {
-  const empIds = new Set(employees.filter((e) => e.userId === user.id).map((e) => e.id));
+  const empIds = new Set(getEmployees().filter((e) => e.userId === user.id).map((e) => e.id));
   return pmoOf(projectId).some((m) => !!m.employeeId && empIds.has(m.employeeId));
 }
 

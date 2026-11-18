@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 import { App, Avatar, Button, Input, Select, Space, Tag, Typography } from "antd";
 import { CloseOutlined, PlusOutlined, TeamOutlined } from "@ant-design/icons";
-import { employees } from "@/lib/mock-data";
+
 import { initials } from "@/lib/task-ui";
 import { useProjectStructure } from "@/lib/project-structure";
 import { mergeParticipants, participantKey, type Participant } from "@/lib/meeting-store";
 import { agi } from "@/app/providers";
+import { useMasterLists } from "@/lib/master-store";
 
 const { Text } = Typography;
 
@@ -26,6 +27,7 @@ export default function ParticipantsPicker({
   projectId?: string;
   readOnly?: boolean;
 }) {
+  const { employees } = useMasterLists();
   const { message } = App.useApp();
   const structure = useProjectStructure();
   const [name, setName] = useState("");
@@ -37,7 +39,7 @@ export default function ParticipantsPicker({
       employees
         .filter((e) => !taken.has(`emp:${e.id}`))
         .map((e) => ({ value: e.id, label: e.name, desc: `${e.directorate} · ${e.subdirectorate}` })),
-    [taken],
+    [taken, employees],
   );
 
   function add(list: Participant[]) {

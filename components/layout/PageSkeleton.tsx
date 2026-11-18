@@ -4,6 +4,8 @@ import { Typography, Empty, Card } from "antd";
 import type { ReactNode } from "react";
 import { findMenuByPath } from "@/lib/menu-config";
 import { agi } from "@/app/providers";
+import ErrorState from "@/components/common/ErrorState";
+import { useMenuAccess } from "@/lib/use-menu-access";
 
 const { Title, Paragraph } = Typography;
 
@@ -17,6 +19,17 @@ export default function PageSkeleton({
   emptyHint?: string;
 }) {
   const menu = findMenuByPath(path);
+  const access = useMenuAccess();
+  // Role tanpa hak Lihat pada menu ini: tampilkan 403 (di backend: GET harus 403 juga).
+  if (!access.canViewPath(path)) {
+    return (
+      <ErrorState
+        code={403}
+        description={`Role kamu belum punya hak Lihat untuk menu ${menu?.label ?? "ini"}. Hubungi Administrator bila kamu memerlukannya.`}
+        actions={[{ label: "Ke Dashboard", href: "/dashboard", primary: true }]}
+      />
+    );
+  }
 
   return (
     <div>

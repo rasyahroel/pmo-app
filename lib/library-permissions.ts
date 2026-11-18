@@ -13,6 +13,11 @@
 import type { AppUser } from "./mock-data";
 import { isAdministrator } from "./access";
 
+// SAKLAR SEMENTARA: selama belum ada login/backend, semua bagian Pustaka terbuka dan semua orang bisa
+// mengelola artikel. Ubah ke true saat login + backend Golang siap; seluruh aturan di bawah langsung aktif
+// (bagian teknis terkunci, tombol kelola disembunyikan), dan server tetap harus menolak dengan 403.
+export const ENFORCE_LIBRARY_ACCESS = false;
+
 export type LibrarySectionKey = "flow" | "access" | "schema" | "api";
 
 export const LIBRARY_SECTIONS: { key: LibrarySectionKey; label: string; description: string; restricted: boolean }[] = [
@@ -25,6 +30,7 @@ export const LIBRARY_SECTIONS: { key: LibrarySectionKey; label: string; descript
 export const isRestrictedSection = (s: LibrarySectionKey) => LIBRARY_SECTIONS.find((x) => x.key === s)?.restricted ?? false;
 
 export function hasTechnicalAccess(user: AppUser, techUserIds: string[]): boolean {
+  if (!ENFORCE_LIBRARY_ACCESS) return true;
   return isAdministrator(user) || techUserIds.includes(user.id);
 }
 
@@ -37,5 +43,6 @@ export function canManageLibrary(user: AppUser, techUserIds: string[]): boolean 
 }
 
 export function canManageTechAccess(user: AppUser): boolean {
+  if (!ENFORCE_LIBRARY_ACCESS) return true;
   return isAdministrator(user);
 }

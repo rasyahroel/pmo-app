@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import dayjs from "dayjs";
-import { currentUser } from "@/lib/access";
+import { useCurrentUser } from "@/lib/acting-user";
 import { useAuditStore } from "@/lib/audit-store";
 import { seedArticles } from "@/lib/library-content";
 import {
@@ -55,6 +55,7 @@ const NO_ACCESS = "Kamu tidak punya akses ke bagian ini.";
 const NOT_MANAGER = "Hanya pengelola pustaka (Administrator atau developer yang diberi akses teknis) yang bisa mengubah artikel.";
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
+  const currentUser = useCurrentUser();
   const { addLog } = useAuditStore();
   const [all, setAll] = useState<LibraryArticle[]>(seedArticles);
   // Awalnya hanya akun Administrator (selalu punya akses). Administrator menambah developer lain lewat menu Pustaka.
@@ -134,7 +135,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         return { ok: true };
       },
     };
-  }, [all, techAccessIds, addLog]);
+  }, [all, techAccessIds, addLog, currentUser]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

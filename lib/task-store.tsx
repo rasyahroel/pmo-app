@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
-import { currentUser } from "@/lib/access";
+import { useCurrentUser } from "@/lib/acting-user";
+import { useNotify } from "@/lib/notification-store";
 import { projectNameById, taskEntity, truncate, useAuditStore, type NewAuditEntry } from "@/lib/audit-store";
 import { useMasterStore } from "@/lib/master-store";
 import { tasks as seedTasks, type ReviewStatus, type Task } from "@/lib/mock-data";
@@ -53,6 +54,8 @@ const newId = () => `t-${Date.now().toString(36)}${(seq++).toString(36)}`;
 const fail = (reason: string, openSubtasks?: Task[]): { ok: false; reason: string; openSubtasks?: Task[] } => ({ ok: false, reason, openSubtasks });
 
 export function TaskStoreProvider({ children }: { children: ReactNode }) {
+  const currentUser = useCurrentUser();
+  const notify = useNotify();
   const { addLog } = useAuditStore();
   const { pmoOf, phasesOf } = useProjectStructure();
   const { taskStatuses, taskCategories } = useMasterStore();
@@ -138,9 +141,10 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
       }
       commit(next);
       logEntries(task, next, [[parent ? "Sub task" : "Task", "—", "Dibuat"]]);
+      if (task.pics.length) notify({ to: { names: task.pics }, type: "task_assigned", title: `Kamu ditunjuk sebagai PIC: ${task.title}`, body: `${parent ? `Sub task dari “${parent.title}”. ` : ""}Ditugaskan oleh ${currentUser.name}.`, link: `/tasks/${parent?.id ?? task.id}` });
       return { ok: true, task };
     },
-    [commit, isDone, logEntries, phasesOf, pmoOf],
+    [commit, isDone, logEntries, phasesOf, pmoOf, currentUser, notify],
   );
 
   // Inti perubahan task: dipakai updateTask dan moveTask.
@@ -195,9 +199,11 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
       const rows = diffRows(cur, after);
       if (openKids.length > 0) rows.push(["Sub task", `${openKids.length} belum selesai`, "Diselesaikan otomatis"]);
       if (rows.length > 0) logEntries(after, next, rows);
+      const newPics = after.pics.filter((n) => !cur.pics.some((o) => o.trim().toLowerCase() === n.trim().toLowerCase()));
+      if (newPics.length) notify({ to: { names: newPics }, type: "task_assigned", title: `Kamu ditunjuk sebagai PIC: ${after.title}`, body: `Ditugaskan oleh ${currentUser.name}.`, link: `/tasks/${parent?.id ?? after.id}` });
       return { ok: true, completedSubtasks: openKids.length || undefined };
     },
-    [commit, diffRows, isDone, logEntries, phasesOf, pmoOf],
+    [commit, diffRows, isDone, logEntries, phasesOf, pmoOf, currentUser, notify],
   );
 
   const updateTask = useCallback<TaskStore["updateTask"]>((id, patch, opts) => applyChange(id, patch, opts), [applyChange]);
@@ -224,7 +230,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
       logEntries(cur, all, [[cur.parentId ? "Sub task" : "Task", "Aktif", kidCount ? `Dihapus (beserta ${kidCount} sub task)` : "Dihapus"]]);
       return { ok: true };
     },
-    [commit, isDone, logEntries, pmoOf],
+    [commit, isDone, logEntries, pmoOf, currentUser],
   );
 
   const setReview = useCallback<TaskStore["setReview"]>(
@@ -241,9 +247,11 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
       if ((cur.reviewedBy ?? "") !== (patch.reviewedBy ?? "")) rows.push(["Direview oleh", cur.reviewedBy ?? "—", patch.reviewedBy ?? "—"]);
       if (rows.length === 0) rows.push(["Review", "—", "Diperbarui"]);
       logEntries(cur, next, rows);
+      if ((cur.reviewStatus ?? "Belum Direview") !== (patch.reviewStatus ?? cur.reviewStatus ?? "Belum Direview"))
+        notify({ to: { names: cur.pics }, type: "task_reviewed", title: `Task kamu direview: ${cur.title}`, body: `Status review: ${patch.reviewStatus ?? "Belum Direview"}${patch.reviewedBy ? ` · oleh ${patch.reviewedBy}` : ""}.`, link: `/tasks/${cur.parentId ?? cur.id}` });
       return { ok: true };
     },
-    [commit, logEntries, pmoOf],
+    [commit, logEntries, pmoOf, currentUser, notify],
   );
 
   const value = useMemo<TaskStore>(

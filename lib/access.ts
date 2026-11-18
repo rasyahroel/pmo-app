@@ -1,4 +1,5 @@
-import { appUsers, employees, type AppUser, type Project } from "./mock-data";
+import { appUsers, type AppUser, type Project } from "./mock-data";
+import { getEmployees } from "./employee-registry";
 
 // ---------------------------------------------------------------------------
 // FONDASI AKSES PROJECT (belum dipakai di UI — belum ada auth).
@@ -17,9 +18,11 @@ import { appUsers, employees, type AppUser, type Project } from "./mock-data";
 // nanti harus BACKEND (Go) — sembunyiin di frontend itu cuma UX, bukan keamanan.
 // ---------------------------------------------------------------------------
 
-// Sementara belum ada login: anggap "Rani Kusuma" yang lagi login (sama kayak header AppShell).
-// Hapus & ganti dengan user dari session begitu auth jadi.
-export const currentUser: AppUser = appUsers[0];
+// Sementara belum ada login: pengguna awal = Administrator (agar semua menu terbuka). Pengguna aktif
+// sebenarnya dipegang lib/acting-user.tsx (bisa diganti lewat menu pengguna di header untuk simulasi
+// role). Hapus ini begitu auth jadi.
+export const adminUser: AppUser = appUsers.find((u) => u.roles.includes("Administrator")) ?? appUsers[0];
+export const currentUser: AppUser = adminUser;
 
 export function isAdministrator(user: AppUser | undefined): boolean {
   return !!user && user.active && user.roles.includes("Administrator");
@@ -29,7 +32,7 @@ export function canAccessProject(user: AppUser | undefined, project: Project): b
   if (!user || !user.active) return false;
   if (isAdministrator(user)) return true;
   if (project.createdBy === user.id) return true;
-  const employee = employees.find((e) => e.userId === user.id);
+  const employee = getEmployees().find((e) => e.userId === user.id);
   if (!employee) return false;
   return [...project.pmo, ...project.developers].some((m) => m.employeeId === employee.id);
 }

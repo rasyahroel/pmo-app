@@ -4,7 +4,7 @@ import { useState } from "react";
 import { App, Button, DatePicker, Form, Input, Modal, Select } from "antd";
 import dayjs from "dayjs";
 import { masterReviewStatuses, type ReviewStatus, type Task } from "@/lib/mock-data";
-import { currentUser } from "@/lib/access";
+import { useCurrentUser } from "@/lib/acting-user";
 import { useTaskStore } from "@/lib/task-store";
 
 type FormValues = {
@@ -16,6 +16,7 @@ type FormValues = {
 function ReviewBody({ task, onClose }: { task: Task; onClose: () => void }) {
   const { message } = App.useApp();
   const { setReview } = useTaskStore();
+  const currentUser = useCurrentUser();
   const [form] = Form.useForm<FormValues>();
 
   // Review pertama: isi otomatis reviewer = pengguna yang sedang login & tanggal = hari ini.

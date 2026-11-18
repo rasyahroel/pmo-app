@@ -1013,6 +1013,7 @@ export const employees: Employee[] = [
 export type AppUser = {
   id: string;
   name: string;
+  username: string; // dipakai di halaman login (belum aktif)
   email: string;
   directorate: string;
   subdirectorate: string;
@@ -1021,10 +1022,10 @@ export type AppUser = {
 };
 
 export const appUsers: AppUser[] = [
-  { id: "u1", name: "Rani Kusuma", email: "rani.kusuma@company.co.id", directorate: "Direktorat Teknologi Informasi", subdirectorate: "Subdit Development", roles: ["PMO"], active: true },
-  { id: "u2", name: "Fajar Hidayat", email: "fajar.hidayat@company.co.id", directorate: "Direktorat Sumber Daya Manusia", subdirectorate: "Subdit Administrasi Personalia", roles: ["PMO"], active: true },
-  { id: "u3", name: "Dewi Anggraini", email: "dewi.anggraini@company.co.id", directorate: "Direktorat Teknologi Informasi", subdirectorate: "Subdit Quality Assurance", roles: ["QA"], active: true },
-  { id: "u4", name: "Admin IT", email: "admin.it@company.co.id", directorate: "Direktorat Teknologi Informasi", subdirectorate: "Subdit Infrastruktur", roles: ["Administrator"], active: true },
+  { id: "u1", username: "rani.kusuma", name: "Rani Kusuma", email: "rani.kusuma@company.co.id", directorate: "Direktorat Teknologi Informasi", subdirectorate: "Subdit Development", roles: ["PMO"], active: true },
+  { id: "u2", username: "fajar.hidayat", name: "Fajar Hidayat", email: "fajar.hidayat@company.co.id", directorate: "Direktorat Sumber Daya Manusia", subdirectorate: "Subdit Administrasi Personalia", roles: ["PMO"], active: true },
+  { id: "u3", username: "dewi.anggraini", name: "Dewi Anggraini", email: "dewi.anggraini@company.co.id", directorate: "Direktorat Teknologi Informasi", subdirectorate: "Subdit Quality Assurance", roles: ["QA"], active: true },
+  { id: "u4", username: "admin.it", name: "Admin IT", email: "admin.it@company.co.id", directorate: "Direktorat Teknologi Informasi", subdirectorate: "Subdit Infrastruktur", roles: ["Administrator"], active: true },
 ];
 
 export type RolePermission = {
