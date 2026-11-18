@@ -13,7 +13,6 @@ import MeetingCategoriesCrud from "@/components/master-data/MeetingCategoriesCru
 import MeetingStatusesCrud from "@/components/master-data/MeetingStatusesCrud";
 import {
   masterDocumentTypes,
-  masterTestTypes,
   masterApprovalLevels,
   masterProjectRoles,
   masterDirektorat,
@@ -38,7 +37,7 @@ export default function MasterDataPage() {
           {
             key: "test-types",
             label: "Jenis Testing",
-            children: <TestTypesCrud initialItems={masterTestTypes} />,
+            children: <TestTypesCrud />,
           },
           {
             key: "approval-levels",

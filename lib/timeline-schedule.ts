@@ -1,11 +1,12 @@
 import dayjs from "dayjs";
 import type { Phase, PhaseStage, Task } from "@/lib/mock-data";
+import type { TestRecord } from "@/lib/test-logic";
 
 // Rentang tiap tahap TIDAK diinput manual — diturunkan dari data menu lain:
 //  • Dokumen     : tanggal mulai fase → tanggal approval terakhir di dokumen fase (Detail Project › Dokumen)
 //                  (dokumen belum semua approved → bar berjalan sampai hari ini)
 //  • Development : task kategori Development & Migrasi di fase itu (Task Board)
-//  • Testing     : task kategori Testing di fase itu (Task Board)
+//  • Testing     : periode pengujian (menu Pengujian) + task kategori Testing di fase itu (Task Board)
 //  • Live        : target live fase (milestone satu hari)
 // Tahap tanpa sumber data tampil kosong ("—"). Kategori di bawah mengacu ke ID master Kategori Task.
 export const STAGES: PhaseStage[] = ["Dokumen", "Development", "Testing", "Live"];
@@ -28,7 +29,7 @@ export type StageSchedule = Partial<Record<PhaseStage, StageRange>>;
 const minOf = (a: string[]) => a.reduce((x, y) => (x < y ? x : y));
 const maxOf = (a: string[]) => a.reduce((x, y) => (x > y ? x : y));
 
-export function scheduleOf(phase: Phase, tasks: Task[], today: string): StageSchedule {
+export function scheduleOf(phase: Phase, tasks: Task[], today: string, tests: TestRecord[] = []): StageSchedule {
   const out: StageSchedule = {};
 
   // Dokumen
@@ -44,17 +45,25 @@ export function scheduleOf(phase: Phase, tasks: Task[], today: string): StageSch
     out.Dokumen = { start, end: end < start ? start : end, source };
   }
 
-  // Development & Testing dari task
+  // Development & Testing: dari task (+ periode di menu Pengujian untuk Testing)
   for (const stage of ["Development", "Testing"] as const) {
     const cats = STAGE_TASK_CATEGORIES[stage] ?? [];
     const ts = tasks.filter((t) => t.phaseId === phase.id && cats.includes(t.category));
-    if (ts.length > 0) {
-      out[stage] = {
-        start: minOf(ts.map((t) => t.startDate)),
-        end: maxOf(ts.map((t) => t.dueDate)),
-        source: `${ts.length} task kategori ${cats.join("/")}`,
-      };
+    const starts = ts.map((t) => t.startDate);
+    const ends = ts.map((t) => t.dueDate);
+    const parts: string[] = [];
+    if (ts.length > 0) parts.push(`${ts.length} task kategori ${cats.join("/")}`);
+    if (stage === "Testing") {
+      const dated = tests.filter((x) => x.phaseId === phase.id && (x.startDate || x.endDate));
+      for (const x of dated) {
+        if (x.startDate) starts.push(x.startDate);
+        if (x.endDate) ends.push(x.endDate);
+        else if (x.startDate) ends.push(x.startDate);
+        if (!x.startDate && x.endDate) starts.push(x.endDate);
+      }
+      if (dated.length > 0) parts.push(`${dated.length} pengujian (${dated.map((x) => x.type).join(", ")})`);
     }
+    if (starts.length > 0 && ends.length > 0) out[stage] = { start: minOf(starts), end: maxOf(ends), source: parts.join(" + ") };
   }
 
   // Live

@@ -6,6 +6,7 @@ import { Empty, Tag, Tooltip, Typography } from "antd";
 import dayjs from "dayjs";
 import { getProjectStatusColor, type PhaseStage, type Project } from "@/lib/mock-data";
 import { useTaskStore } from "@/lib/task-store";
+import { useTestStore } from "@/lib/test-store";
 import { STAGES, STAGE_COLOR, daysBetween, parallelOf, scheduleOf, skipReason, stageProgress, stageState } from "@/lib/timeline-schedule";
 import { fmt, fmtFull } from "@/components/timeline/TimelineTable";
 
@@ -19,15 +20,16 @@ const SOFT = "#EEF0F5";
 // Tujuan klik tiap tahap: tab di detail project (atau halaman Pengujian untuk Testing).
 const stageHref = (projectId: string, stage: PhaseStage) =>
   stage === "Testing"
-    ? "/testing"
+    ? `/testing?projectId=${projectId}`
     : `/projects/${projectId}?tab=${stage === "Dokumen" ? "dokumen" : stage === "Development" ? "task-rapat" : "git-env"}`;
 
 // Gantt: per project → per fase → satu baris per tahap (Dokumen, Development, Testing, Live).
 export default function TimelineGantt({ projects, today, range }: { projects: Project[]; today: string; range?: [string, string] | null }) {
   const { tasks } = useTaskStore();
+  const { records: tests } = useTestStore();
   const { min, span, months } = useMemo(() => {
     const dates = projects.flatMap((p) =>
-      p.phases.flatMap((ph) => [ph.startDate, ph.targetLiveDate, ...STAGES.flatMap((s) => { const r = scheduleOf(ph, tasks, today)[s]; return r ? [r.start, r.end] : []; })]),
+      p.phases.flatMap((ph) => [ph.startDate, ph.targetLiveDate, ...STAGES.flatMap((s) => { const r = scheduleOf(ph, tasks, today, tests)[s]; return r ? [r.start, r.end] : []; })]),
     );
     if (dates.length === 0) return { min: dayjs(), span: 1, months: [] as { label: string; left: number; width: number }[] };
     // kalau ada filter periode, sumbu waktu dipotong sesuai periode itu
@@ -43,7 +45,7 @@ export default function TimelineGantt({ projects, today, range }: { projects: Pr
       });
     }
     return { min: start, span: total, months: ms };
-  }, [projects, tasks, today, range]);
+  }, [projects, tasks, tests, today, range]);
 
   if (projects.length === 0) return <Empty description="Tidak ada project/fase yang cocok." style={{ padding: 40 }} />;
 
@@ -92,7 +94,7 @@ export default function TimelineGantt({ projects, today, range }: { projects: Pr
             </div>
 
             {p.phases.map((ph) => {
-              const sch = scheduleOf(ph, tasks, today);
+              const sch = scheduleOf(ph, tasks, today, tests);
               const parallel = parallelOf(sch);
               return (
                 <Fragment key={ph.id}>

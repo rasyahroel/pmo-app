@@ -6,6 +6,8 @@ import { Progress, Tag, Tooltip, Typography } from "antd";
 import dayjs from "dayjs";
 import { getProjectStatusColor, type Phase, type Project, type Task } from "@/lib/mock-data";
 import { useTaskStore } from "@/lib/task-store";
+import { useTestStore } from "@/lib/test-store";
+import type { TestRecord } from "@/lib/test-logic";
 import { STAGES, STAGE_COLOR, daysBetween, parallelOf, scheduleOf, skipReason, stageProgress, stageState, type StageState } from "@/lib/timeline-schedule";
 
 const { Text } = Typography;
@@ -55,6 +57,7 @@ const head: React.CSSProperties = {
 // Tabel ala Excel: satu baris per fase, kolom per tahap berisi rentang tanggal + lama (hari) + progress.
 export default function TimelineTable({ projects, today }: { projects: Project[]; today: string }) {
   const { tasks } = useTaskStore();
+  const { records: tests } = useTestStore();
   return (
     <div style={{ overflowX: "auto", background: "#fff", borderStyle: "solid", borderWidth: 1, borderColor: "#E6E8EF", borderRadius: 8 }}>
       <table style={{ borderCollapse: "separate", borderSpacing: 0, width: "100%", minWidth: 1180 }}>
@@ -75,7 +78,7 @@ export default function TimelineTable({ projects, today }: { projects: Project[]
           {projects.map((p) => (
             <Fragment key={p.id}>
               {p.phases.map((ph, i) => (
-                <PhaseRow key={ph.id} project={p} phase={ph} tasks={tasks} first={i === 0} rowSpan={p.phases.length} today={today} />
+                <PhaseRow key={ph.id} project={p} phase={ph} tasks={tasks} tests={tests} first={i === 0} rowSpan={p.phases.length} today={today} />
               ))}
             </Fragment>
           ))}
@@ -85,8 +88,8 @@ export default function TimelineTable({ projects, today }: { projects: Project[]
   );
 }
 
-function PhaseRow({ project, phase, tasks, first, rowSpan, today }: { project: Project; phase: Phase; tasks: Task[]; first: boolean; rowSpan: number; today: string }) {
-  const sch = scheduleOf(phase, tasks, today);
+function PhaseRow({ project, phase, tasks, tests, first, rowSpan, today }: { project: Project; phase: Phase; tasks: Task[]; tests: TestRecord[]; first: boolean; rowSpan: number; today: string }) {
+  const sch = scheduleOf(phase, tasks, today, tests);
   const parallel = parallelOf(sch);
   const total = daysBetween(phase.startDate, phase.targetLiveDate);
   const left = dayjs(phase.targetLiveDate).diff(dayjs(today), "day");

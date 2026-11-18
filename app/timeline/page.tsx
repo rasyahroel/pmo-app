@@ -66,7 +66,7 @@ export default function TimelinePage() {
                 <b>Dokumen</b> ← tanggal mulai fase sampai tanggal approval terakhir dokumen (Project › detail › Dokumen); kalau belum semua approved, berjalan sampai hari ini.
               </li>
               <li>
-                <b>Development & Testing</b> ← tanggal mulai–due task di <b>Task Board</b> (per fase & kategori: Development/Migrasi, Testing). Ubah task, timeline ikut berubah.
+                <b>Development</b> ← tanggal mulai–due task di <b>Task Board</b> (kategori Development/Migrasi). <b>Testing</b> ← task kategori Testing <i>dan</i> periode yang diisi di menu <b>Pengujian</b>. Ubah task atau pengujian, timeline ikut berubah.
               </li>
               <li>
                 <b>Tidak semua tahap ada di setiap fase.</b> Fase lanjutan (mis. Fase 2) yang tidak punya dokumen baru dan merujuk fase sebelumnya ditandai “tidak ada dokumen baru” — langsung ke Development, dan tidak dihitung terlambat. Dokumen hasil testing &amp; migrasi dihitung di tahapnya masing-masing.
@@ -107,7 +107,7 @@ export default function TimelinePage() {
               value={period}
               onChange={(v) => setPeriod(v && v[0] && v[1] ? [v[0], v[1]] : null)}
               picker="month"
-              format="MMM YYYY"
+              format="MM/YYYY"
               presets={PRESETS}
               placeholder={["Dari bulan", "Sampai bulan"]}
               allowClear

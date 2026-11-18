@@ -12,6 +12,7 @@ import { MasterStoreProvider } from "@/lib/master-store";
 import { MeetingProvider } from "@/lib/meeting-store";
 import { ProjectStructureProvider } from "@/lib/project-structure";
 import { TaskStoreProvider } from "@/lib/task-store";
+import { TestStoreProvider } from "@/lib/test-store";
 
 // AGI brand palette (Bank Artha Graha Internasional) — sky-blue/teal family,
 // taken from the org's own Tailwind tokens (agi-50 .. agi-950). Deliberately
@@ -77,7 +78,9 @@ export default function Providers({ children }: { children: ReactNode }) {
                 <TaskStoreProvider>
                   <CommentProvider>
                     <MeetingProvider>
-                      <LibraryProvider>{children}</LibraryProvider>
+                      <TestStoreProvider>
+                        <LibraryProvider>{children}</LibraryProvider>
+                      </TestStoreProvider>
                     </MeetingProvider>
                   </CommentProvider>
                 </TaskStoreProvider>

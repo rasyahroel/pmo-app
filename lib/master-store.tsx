@@ -3,6 +3,7 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import {
   masterMeetingCategories,
+  masterTestTypes,
   masterTaskCategories,
   masterTaskStatuses,
   type TaskCategoryDef,
@@ -22,6 +23,8 @@ import { deriveStatusStyle, type StatusStyle } from "@/lib/task-ui";
 export type MeetingStatusKind = "planned" | "done" | "cancelled";
 export type MeetingStatusDef = { id: string; name: string; color: string; kind: MeetingStatusKind };
 export type MeetingCategoryDef = { id: string; name: string };
+/** Jenis testing + aturan urutannya. Urutan di daftar = urutan alur pengujian. `type` dipakai sebagai kunci. */
+export type TestTypeDef = { type: string; requiresPrevious: boolean; allowParallel: boolean };
 
 // ID seed rapat harus sama dengan yang dipakai data awal di meeting-store.
 const SEED_MEETING_STATUSES: MeetingStatusDef[] = [
@@ -58,6 +61,12 @@ type MasterStore = {
   addMeetingCategory: (name: string) => string;
   renameMeetingCategory: (id: string, name: string) => void;
   deleteMeetingCategory: (id: string) => void;
+
+  testTypes: TestTypeDef[];
+  addTestType: (def: TestTypeDef) => void;
+  updateTestType: (type: string, patch: Partial<Omit<TestTypeDef, "type">>) => void;
+  deleteTestType: (type: string) => void;
+  moveTestType: (type: string, direction: -1 | 1) => void;
 };
 
 const Ctx = createContext<MasterStore | null>(null);
@@ -81,6 +90,8 @@ export function MasterStoreProvider({ children }: { children: ReactNode }) {
   const [meetingCategories, setMeetingCategories] = useState<MeetingCategoryDef[]>(() =>
     SEED_MEETING_CATEGORIES.map((c) => ({ ...c })),
   );
+
+  const [testTypes, setTestTypes] = useState<TestTypeDef[]>(() => masterTestTypes.map((t) => ({ ...t })));
 
   const value = useMemo<MasterStore>(
     () => ({
@@ -121,8 +132,22 @@ export function MasterStoreProvider({ children }: { children: ReactNode }) {
       },
       renameMeetingCategory: (id, name) => setMeetingCategories((p) => p.map((c) => (c.id === id ? { ...c, name } : c))),
       deleteMeetingCategory: (id) => setMeetingCategories((p) => p.filter((c) => c.id !== id)),
+
+      testTypes,
+      addTestType: (def) => setTestTypes((p) => [...p, def]),
+      updateTestType: (type, patch) => setTestTypes((p) => p.map((t) => (t.type === type ? { ...t, ...patch } : t))),
+      deleteTestType: (type) => setTestTypes((p) => p.filter((t) => t.type !== type)),
+      moveTestType: (type, d) =>
+        setTestTypes((p) => {
+          const i = p.findIndex((t) => t.type === type);
+          const j = i + d;
+          if (i < 0 || j < 0 || j >= p.length) return p;
+          const next = p.slice();
+          [next[i], next[j]] = [next[j], next[i]];
+          return next;
+        }),
     }),
-    [taskStatuses, taskCategories, meetingStatuses, meetingCategories],
+    [taskStatuses, taskCategories, meetingStatuses, meetingCategories, testTypes],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
