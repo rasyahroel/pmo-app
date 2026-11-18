@@ -98,6 +98,7 @@ export const MENU_CONFIG: MenuNode[] = [
 // Halaman tanpa sidebar. Tidak masuk matriks permission (selalu boleh untuk yang sudah masuk).
 export const EXTRA_PAGES: MenuNode[] = [
   { key: "notifications", label: "Notifikasi", path: "/notifications", description: "Semua pemberitahuan untukmu: penugasan, komentar, review, rapat, dan pengingat.", hidden: true },
+  { key: "profile", label: "Profil Saya", path: "/profile", description: "Data akun, keamanan, dan ganti password.", hidden: true },
 ];
 
 /** Kunci menu tingkat atas (kunci di matriks permission) untuk sebuah path. */

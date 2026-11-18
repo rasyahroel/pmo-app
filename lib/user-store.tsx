@@ -15,6 +15,7 @@ export type PermKey = "view" | "create" | "edit" | "delete";
 export const PERM_KEYS: PermKey[] = ["view", "create", "edit", "delete"];
 export const PERM_LABEL: Record<PermKey, string> = { view: "Lihat", create: "Tambah", edit: "Ubah", delete: "Hapus" };
 export const ADMIN_ROLE = "Administrator";
+export const SELF_REGISTER_ROLE = "User / Viewer";
 
 export type UserInput = Omit<AppUser, "id">;
 export type Result<T = object> = ({ ok: true } & T) | { ok: false; reason: string };
@@ -23,6 +24,8 @@ type UserStore = {
   users: AppUser[];
   roles: Role[]; // memberCount dihitung dari users
   addUser: (input: UserInput) => Result<{ id: string }>;
+  /** Pendaftaran mandiri: akun dibuat nonaktif + menunggu persetujuan, role bawaan User / Viewer. */
+  registerUser: (input: Pick<UserInput, "name" | "username" | "email" | "directorate" | "subdirectorate">) => Result<{ id: string }>;
   updateUser: (id: string, input: UserInput) => Result;
   deleteUser: (id: string) => Result;
   setUserActive: (id: string, active: boolean) => Result;
@@ -91,6 +94,15 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
         logUser(input, "Akun", "—", `Dibuat · ${input.roles.join(", ")}`);
         return { ok: true, id };
       },
+      registerUser(input) {
+        const full: UserInput = { ...input, roles: [SELF_REGISTER_ROLE], active: false, pending: true };
+        const d = dupUser(full);
+        if (d) return fail(d);
+        const id = `u-${Date.now()}`;
+        setUsers([...usersRef.current, { id, ...full }]);
+        addLog({ projectName: "Manajemen User", entity: `User · ${input.name}`, field: "Akun", oldValue: "—", newValue: "Mendaftar sendiri · menunggu persetujuan", by: "Pendaftaran mandiri" });
+        return { ok: true, id };
+      },
       updateUser(id, input) {
         const cur = usersRef.current.find((u) => u.id === id);
         if (!cur) return fail("Pengguna tidak ditemukan.");
@@ -114,7 +126,7 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
         if (cur.active === active) return { ok: true };
         if (id === currentUser.id && !active) return fail("Akun yang sedang dipakai tidak bisa dinonaktifkan.");
         if (wouldLoseLastAdmin(cur, { ...cur, active })) return fail("Harus ada minimal satu Administrator aktif.");
-        setUsers(usersRef.current.map((u) => (u.id === id ? { ...u, active } : u)));
+        setUsers(usersRef.current.map((u) => (u.id === id ? { ...u, active, pending: active ? false : u.pending } : u)));
         logUser(cur, "Status", cur.active ? "Aktif" : "Nonaktif", active ? "Aktif" : "Nonaktif");
         return { ok: true };
       },

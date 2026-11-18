@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { App, Layout, Menu, Avatar, Dropdown, Tag, Typography, Breadcrumb } from "antd";
 import { AnimatePresence, motion } from "framer-motion";
@@ -15,14 +15,14 @@ import { MENU_ICONS } from "@/lib/menu-icons";
 import { agi } from "@/app/providers";
 import type { MenuProps } from "antd";
 import NotificationBell from "@/components/notifications/NotificationBell";
-import { useActingUserControls, useCurrentUser } from "@/lib/acting-user";
+import { useActingUserControls, useCurrentUser, useHydrated, useSession } from "@/lib/acting-user";
+import ForcePasswordChange from "@/components/auth/ForcePasswordChange";
+import { AUTH_PATHS, DEMO_MODE, ENFORCE_LOGIN } from "@/lib/auth-config";
 import { useMenuAccess } from "@/lib/use-menu-access";
 import { useUserStore } from "@/lib/user-store";
 
 const { Sider, Header, Content } = Layout;
 
-// Halaman yang tampil tanpa sidebar/header (belum masuk / sesi habis).
-const STANDALONE_PATHS = ["/login", "/401"];
 const { Text } = Typography;
 
 function toAntdMenuItems(canView: (menuKey: string) => boolean): MenuProps["items"] {
@@ -54,7 +54,27 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const { users } = useUserStore();
   const { message } = App.useApp();
   const menuItems = useMemo(() => toAntdMenuItems((k) => !!access.can(k)), [access]);
-  if (STANDALONE_PATHS.includes(pathname)) return <>{children}</>;
+  const hydrated = useHydrated();
+  const { session, signOut } = useSession();
+  const standalone = AUTH_PATHS.includes(pathname);
+  const hadSession = useRef(false);
+  const sessionUserOk = !!session && users.some((u) => u.id === session.userId && u.active);
+
+  // Penjaga login: tanpa sesi -> /login (membawa tujuan semula); akun yang sesinya masih ada tapi sudah
+  // dinonaktifkan/dihapus -> keluar paksa. Di backend ini pekerjaan middleware (401 -> /login).
+  useEffect(() => {
+    if (!ENFORCE_LOGIN || standalone || !hydrated) return;
+    if (session) hadSession.current = true;
+    // kunjungan tanpa sesi membawa tujuan semula (?next); setelah keluar sengaja, tidak membawa halaman pengguna sebelumnya
+    if (!session) router.replace(hadSession.current ? "/login" : `/login?next=${encodeURIComponent(pathname)}`);
+    else if (!sessionUserOk) {
+      signOut();
+      router.replace("/login");
+    }
+  }, [hydrated, session, sessionUserOk, standalone, pathname, router, signOut]);
+
+  if (standalone) return <>{children}</>;
+  if (ENFORCE_LOGIN && (!hydrated || !session || !sessionUserOk)) return <div style={{ minHeight: "100vh", background: "#F3FAFB" }} />;
   const current = findMenuByPath(pathname);
   const openKey = MENU_CONFIG.find((n) =>
     n.children?.some((c) => c.path === pathname)
@@ -135,11 +155,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
               trigger={["click"]}
               menu={{
                 items: [
-                  { key: "profile", label: "Profil", disabled: true },
-                  { type: "divider" },
-                  {
-                    type: "group",
-                    label: "Simulasi masuk sebagai (belum ada login)",
+                  { key: "profile", label: "Profil saya" },
+                  ...(DEMO_MODE ? [{ type: "divider" as const }] : []),
+                  ...(DEMO_MODE ? [{
+                    type: "group" as const,
+                    label: "Simulasi masuk sebagai (alat uji)",
                     children: users
                       .filter((u) => u.active)
                       .map((u) => ({
@@ -151,12 +171,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
                           </span>
                         ),
                       })),
-                  },
+                  }] : []),
                   { type: "divider" },
                   { key: "logout", label: "Keluar" },
                 ],
                 onClick: ({ key }) => {
-                  if (key === "logout") router.push("/login");
+                  if (key === "profile") router.push("/profile");
+                  if (key === "logout") {
+                    signOut();
+                    router.replace("/login");
+                  }
                   if (key.startsWith("as:")) {
                     const u = users.find((x) => `as:${x.id}` === key);
                     if (u) {
@@ -189,6 +213,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           </AnimatePresence>
         </Content>
       </Layout>
+      <ForcePasswordChange />
     </Layout>
   );
 }

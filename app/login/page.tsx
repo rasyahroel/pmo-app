@@ -1,142 +1,128 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Form, Input, Button, Checkbox, Typography, Divider, message } from "antd";
-import {
-  UserOutlined,
-  LockOutlined,
-  SafetyCertificateOutlined,
-  ProjectOutlined,
-  FileDoneOutlined,
-  TeamOutlined,
-} from "@ant-design/icons";
+import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Alert, Button, Checkbox, Collapse, Form, Input, Tag, Typography } from "antd";
+import { LockOutlined, UserOutlined } from "@ant-design/icons";
+import AuthLayout from "@/components/auth/AuthLayout";
 import { agi } from "@/app/providers";
+import { useHydrated, useSession } from "@/lib/acting-user";
+import { useAuth } from "@/lib/auth-store";
+import { ALLOW_SELF_REGISTER, DEMO_MODE, INITIAL_PASSWORD } from "@/lib/auth-config";
+import { useUserStore } from "@/lib/user-store";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
+type Values = { identifier: string; password: string; remember?: boolean };
 
-type LoginValues = { username: string; password: string; remember?: boolean };
+// hanya path internal (cegah open redirect lewat ?next=https://...)
+const safeNext = (n: string | null) => (n && n.startsWith("/") && !n.startsWith("//") && !n.startsWith("/login") ? n : "/dashboard");
 
-const FEATURES = [
-  { icon: <ProjectOutlined />, title: "Pantau project", desc: "Fase, progres, dan status semua project di satu tempat." },
-  { icon: <FileDoneOutlined />, title: "Kelola dokumen & approval", desc: "Dokumen per fase lengkap dengan alur persetujuannya." },
-  { icon: <TeamOutlined />, title: "Kerja bareng tim project", desc: "Hanya PMO dan developer yang terlibat yang punya akses." },
-];
-
-const CSS = `
-.lg-split{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);min-height:100vh}
-.lg-aside{position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:48px 56px;color:#fff;background:linear-gradient(160deg,${agi[950]} 0%,${agi[900]} 55%,${agi[700]} 100%)}
-.lg-panel{display:flex;align-items:center;justify-content:center;padding:32px 24px;background:#fff}
-.lg-blob{position:absolute;border-radius:50%;pointer-events:none}
-@media (max-width:900px){.lg-split{grid-template-columns:1fr}.lg-aside{display:none}.lg-panel{background:#F3FAFB}}
-`;
-
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const hydrated = useHydrated();
+  const { session } = useSession();
+  const { login } = useAuth();
+  const { users } = useUserStore();
+  const [form] = Form.useForm<Values>();
+  const [error, setError] = useState<{ code: string; reason: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  const next = safeNext(params.get("next"));
+  const notice = params.get("reset") ? "Password berhasil diubah. Silakan masuk dengan password baru." : params.get("registered") ? "Pendaftaran terkirim. Kamu bisa masuk setelah Administrator menyetujui akunnya." : null;
 
-  function handleSubmit(values: LoginValues) {
+  // sudah punya sesi -> tidak perlu login lagi
+  useEffect(() => {
+    if (hydrated && session) router.replace(next);
+  }, [hydrated, session, next, router]);
+
+  function submit(v: Values) {
     setLoading(true);
-    // TODO: ganti dengan POST ke backend Go (mis. /api/auth/login). Session-nya
-    // nanti berupa cookie httpOnly, jadi frontend tidak perlu menyimpan token.
-    console.debug("login (demo)", values.username);
+    setError(null);
+    // simulasi latensi jaringan; di backend ini POST /auth/login
     setTimeout(() => {
+      const r = login(v.identifier, v.password, !!v.remember);
       setLoading(false);
-      message.success("Berhasil masuk (mode demo).");
-      router.push("/dashboard");
-    }, 600);
+      if (!r.ok) return setError({ code: r.code, reason: r.reason });
+      router.replace(next);
+    }, 450);
   }
 
   return (
-    <div className="lg-split">
-      <style>{CSS}</style>
-
-      <aside className="lg-aside">
-        <span className="lg-blob" style={{ width: 420, height: 420, top: -160, right: -140, background: `radial-gradient(circle, ${agi[500]}55, transparent 70%)` }} />
-        <span className="lg-blob" style={{ width: 360, height: 360, bottom: -150, left: -120, background: `radial-gradient(circle, ${agi[400]}33, transparent 70%)` }} />
-
-        <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/favicon.ico" alt="Logo" width={26} height={26} />
-          </div>
-          <div style={{ lineHeight: 1.2 }}>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>Project Management</div>
-            <div style={{ color: agi[300], fontSize: 12, letterSpacing: 0.3 }}>PMO Internal</div>
-          </div>
+    <AuthLayout title="Masuk" subtitle="Gunakan akun yang dibuatkan administrator.">
+      {notice && <Alert type="success" showIcon title={notice} style={{ marginBottom: 16 }} />}
+      {error && <Alert type={error.code === "pending" ? "warning" : "error"} showIcon title={error.reason} style={{ marginBottom: 16 }} />}
+      <Form<Values> form={form} layout="vertical" requiredMark={false} onFinish={submit} initialValues={{ remember: true }}>
+        <Form.Item name="identifier" label="Email / Username" rules={[{ required: true, whitespace: true, message: "Wajib diisi" }]}>
+          <Input size="large" prefix={<UserOutlined style={{ color: agi[500] }} />} placeholder="username atau nama@perusahaan.co.id" autoComplete="username" autoFocus />
+        </Form.Item>
+        <Form.Item name="password" label="Password" rules={[{ required: true, message: "Wajib diisi" }]}>
+          <Input.Password size="large" prefix={<LockOutlined style={{ color: agi[500] }} />} placeholder="Password" autoComplete="current-password" />
+        </Form.Item>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <Form.Item name="remember" valuePropName="checked" noStyle>
+            <Checkbox>Ingat saya</Checkbox>
+          </Form.Item>
+          <Link href="/forgot-password" style={{ fontSize: 13 }}>Lupa password?</Link>
         </div>
+        <Button type="primary" htmlType="submit" size="large" block loading={loading}>
+          Masuk
+        </Button>
+      </Form>
 
-        <div style={{ position: "relative", maxWidth: 460 }}>
-          <Title level={2} style={{ color: "#fff", margin: "0 0 12px", lineHeight: 1.25 }}>
-            Semua project, dokumen, dan progres tim dalam satu tempat.
-          </Title>
-          <Text style={{ color: agi[100], fontSize: 15 }}>
-            Aplikasi internal untuk PMO dan tim developer yang mengerjakan project.
-          </Text>
-          <div style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 36 }}>
-            {FEATURES.map((f) => (
-              <div key={f.title} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, background: `${agi[400]}26`, border: `1px solid ${agi[400]}55`, color: agi[300] }}>
-                  {f.icon}
-                </div>
+      <div style={{ marginTop: 22, textAlign: "center", fontSize: 13 }}>
+        {ALLOW_SELF_REGISTER ? (
+          <>
+            <Text type="secondary">Belum punya akun? </Text>
+            <Link href="/register">Daftar</Link>
+          </>
+        ) : (
+          <Text type="secondary">Belum punya akun? Akun dibuatkan Administrator; hubungi Administrator.</Text>
+        )}
+      </div>
+
+      {DEMO_MODE && (
+        <Collapse
+          size="small"
+          style={{ marginTop: 22 }}
+          items={[
+            {
+              key: "demo",
+              label: "Akun uji (hanya versi uji)",
+              children: (
                 <div>
-                  <div style={{ fontWeight: 600 }}>{f.title}</div>
-                  <div style={{ color: agi[100], fontSize: 13.5, opacity: 0.85 }}>{f.desc}</div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Password awal semua akun: <Text code>{INITIAL_PASSWORD}</Text>. Login pertama akan meminta ganti password. Klik untuk mengisi.
+                  </Text>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+                    {users.map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => form.setFieldsValue({ identifier: u.username, password: INITIAL_PASSWORD })}
+                        style={{ textAlign: "left", padding: "6px 10px", borderRadius: 8, border: "1px solid #E6ECEF", background: "#fff", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 8 }}
+                      >
+                        <span>
+                          {u.username} <Text type="secondary" style={{ fontSize: 12 }}>· {u.roles.join(", ")}</Text>
+                        </span>
+                        {u.pending ? <Tag color="warning" style={{ marginInlineEnd: 0 }}>menunggu</Tag> : !u.active ? <Tag style={{ marginInlineEnd: 0 }}>nonaktif</Tag> : null}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
+              ),
+            },
+          ]}
+        />
+      )}
+    </AuthLayout>
+  );
+}
 
-        <div style={{ position: "relative", color: agi[300], fontSize: 12 }}>
-          Akses terbatas untuk pengguna yang terdaftar.
-        </div>
-      </aside>
-
-      <main className="lg-panel">
-        <div style={{ width: "100%", maxWidth: 400 }}>
-          <Title level={3} style={{ margin: 0 }}>Masuk</Title>
-          <Text type="secondary">Gunakan akun yang dibuatkan oleh administrator.</Text>
-
-          <Form<LoginValues>
-            layout="vertical"
-            requiredMark={false}
-            onFinish={handleSubmit}
-            initialValues={{ remember: true }}
-            style={{ marginTop: 28 }}
-          >
-            <Form.Item name="username" label="Email / Username" rules={[{ required: true, message: "Wajib diisi" }]}>
-              <Input size="large" prefix={<UserOutlined style={{ color: agi[500] }} />} placeholder="nama@perusahaan.co.id" autoComplete="username" autoFocus />
-            </Form.Item>
-            <Form.Item name="password" label="Password" rules={[{ required: true, message: "Wajib diisi" }]}>
-              <Input.Password size="large" prefix={<LockOutlined style={{ color: agi[500] }} />} placeholder="Password" autoComplete="current-password" />
-            </Form.Item>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <Form.Item name="remember" valuePropName="checked" noStyle>
-                <Checkbox>Ingat saya</Checkbox>
-              </Form.Item>
-              <a onClick={() => message.info("Hubungi administrator untuk mereset password.")} style={{ fontSize: 13 }}>
-                Lupa password?
-              </a>
-            </div>
-            <Button type="primary" htmlType="submit" size="large" block loading={loading}>
-              Masuk
-            </Button>
-          </Form>
-
-          <Divider plain style={{ margin: "22px 0", fontSize: 12 }}>atau</Divider>
-          <Button size="large" block icon={<SafetyCertificateOutlined />} onClick={() => message.info("Login SSO belum dihubungkan.")}>
-            Masuk dengan SSO
-          </Button>
-
-          <div style={{ marginTop: 24, padding: "12px 14px", borderRadius: 10, background: agi[50], border: `1px solid ${agi[100]}`, fontSize: 13, color: agi[900] }}>
-            Belum punya akun? Tidak ada pendaftaran mandiri — akun dibuat oleh administrator lewat menu Manajemen User.
-          </div>
-          <div style={{ marginTop: 14, textAlign: "center" }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>Mode demo — belum terhubung ke backend.</Text>
-          </div>
-        </div>
-      </main>
-    </div>
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

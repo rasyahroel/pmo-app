@@ -6,6 +6,7 @@ import NextTopLoader from "nextjs-toploader";
 import type { ReactNode } from "react";
 import AppSplash from "@/components/layout/AppSplash";
 import { ActingUserProvider } from "@/lib/acting-user";
+import { AuthProvider } from "@/lib/auth-store";
 import { AuditProvider } from "@/lib/audit-store";
 import { CommentProvider } from "@/lib/comment-store";
 import { LibraryProvider } from "@/lib/library-store";
@@ -74,12 +75,13 @@ export default function Providers({ children }: { children: ReactNode }) {
           <AppSplash />
           <NextTopLoader color={agi[400]} showSpinner={false} height={3} />
           {/* Urutan penting: provider yang dipakai provider lain harus berada di luarnya.
-              Acting -> Audit -> User & ProjectStructure -> Notification -> Master -> Task -> Comment & Meeting -> Library */}
+              Acting -> Audit -> User & ProjectStructure -> Notification -> Auth -> Master -> Task -> Comment & Meeting -> Library */}
           <ActingUserProvider>
             <AuditProvider>
               <UserStoreProvider>
                 <ProjectStructureProvider>
                   <NotificationProvider>
+                  <AuthProvider>
                   <MasterStoreProvider>
                     <TaskStoreProvider>
                       <CommentProvider>
@@ -91,6 +93,7 @@ export default function Providers({ children }: { children: ReactNode }) {
                       </CommentProvider>
                     </TaskStoreProvider>
                   </MasterStoreProvider>
+                  </AuthProvider>
                   </NotificationProvider>
                 </ProjectStructureProvider>
               </UserStoreProvider>

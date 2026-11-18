@@ -29,9 +29,10 @@ export type NotifType =
   | "task_overdue"
   | "task_due_soon"
   | "meeting_soon"
-  | "meeting_no_result";
+  | "meeting_no_result"
+  | "user_registered";
 
-export type NotifGroup = "Task" | "Rapat" | "Pengingat";
+export type NotifGroup = "Task" | "Rapat" | "Pengingat" | "Akun";
 
 export const NOTIF_META: Record<NotifType, { label: string; group: NotifGroup; color: string }> = {
   task_assigned: { label: "Penugasan", group: "Task", color: "#206D7E" },
@@ -44,6 +45,7 @@ export const NOTIF_META: Record<NotifType, { label: string; group: NotifGroup; c
   task_due_soon: { label: "Segera jatuh tempo", group: "Pengingat", color: "#B7791F" },
   meeting_soon: { label: "Rapat segera", group: "Pengingat", color: "#2F6FDE" },
   meeting_no_result: { label: "Hasil rapat belum ada", group: "Pengingat", color: "#B7791F" },
+  user_registered: { label: "Pendaftaran akun", group: "Akun", color: "#206D7E" },
 };
 
 export type Notif = {
@@ -68,7 +70,15 @@ export type NotifTarget = {
   /** semua PMO project ini */
   pmoOfProject?: string;
 };
-export type NotifInput = { to: NotifTarget; type: NotifType; title: string; body?: string; link: string };
+export type NotifInput = {
+  to: NotifTarget;
+  type: NotifType;
+  title: string;
+  body?: string;
+  link: string;
+  /** pelaku bila bukan pengguna aktif (mis. pendaftaran mandiri, saat belum ada yang login) */
+  from?: { id: string; name: string };
+};
 
 type NotificationStore = {
   /** hanya yang dikirim ke pengguna aktif, terbaru dulu (belum termasuk pengingat) */
@@ -111,7 +121,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<NotificationStore>(() => {
-    const resolve = (t: NotifTarget): string[] => {
+    const resolve = (t: NotifTarget, exceptId: string): string[] => {
       const emps = getEmployees();
       const out = new Set<string>(t.userIds ?? []);
       for (const n of t.names ?? []) {
@@ -131,14 +141,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         }
       }
       // hanya akun aktif, dan bukan pelakunya sendiri
-      return [...out].filter((id) => id !== me.id && users.some((u) => u.id === id && u.active));
+      return [...out].filter((id) => id !== exceptId && users.some((u) => u.id === id && u.active));
     };
 
     return {
       mine: items.filter((n) => n.userId === me.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
       notify(n) {
         const at = dayjs().format("YYYY-MM-DDTHH:mm:ss");
-        const rows: Notif[] = resolve(n.to).map((userId) => ({ id: `n-${Date.now().toString(36)}-${++seq}`, userId, type: n.type, title: n.title, body: n.body, link: n.link, createdAt: at, actor: me.name }));
+        const from = n.from ?? { id: me.id, name: me.name };
+        const rows: Notif[] = resolve(n.to, from.id).map((userId) => ({ id: `n-${Date.now().toString(36)}-${++seq}`, userId, type: n.type, title: n.title, body: n.body, link: n.link, createdAt: at, actor: from.name }));
         if (rows.length) commit([...rows, ...ref.current]);
       },
       markRead(id) {

@@ -44,7 +44,7 @@ export default function NotificationsPage() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", justifyContent: "space-between", padding: 14, borderBottom: "1px solid #EEF2F4" }}>
           <Space wrap>
             <Segmented value={state} onChange={(v) => setState(v as "all" | "unread")} options={[{ value: "all", label: `Semua (${all.length})` }, { value: "unread", label: `Belum dibaca (${unread})` }]} />
-            <Select value={group} onChange={setGroup} style={{ minWidth: 150 }} options={[{ value: "all", label: "Semua jenis" }, { value: "Task", label: "Task" }, { value: "Rapat", label: "Rapat" }, { value: "Pengingat", label: "Pengingat" }]} />
+            <Select value={group} onChange={setGroup} style={{ minWidth: 150 }} options={[{ value: "all", label: "Semua jenis" }, { value: "Task", label: "Task" }, { value: "Rapat", label: "Rapat" }, { value: "Pengingat", label: "Pengingat" }, { value: "Akun", label: "Akun" }]} />
           </Space>
           <Button disabled={unread === 0} onClick={markAllRead}>
             Tandai semua dibaca

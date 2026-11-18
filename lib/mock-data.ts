@@ -1019,6 +1019,7 @@ export type AppUser = {
   subdirectorate: string;
   roles: string[]; // nama Role dari master Role/Permission (Administrator/PMO/Developer/QA/User-Viewer)
   active: boolean;
+  pending?: boolean; // true = mendaftar sendiri, menunggu disetujui Administrator (belum bisa login)
 };
 
 export const appUsers: AppUser[] = [

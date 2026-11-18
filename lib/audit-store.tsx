@@ -26,6 +26,8 @@ export type NewAuditEntry = {
   newValue: string;
   taskId?: string;
   projectId?: string;
+  /** pelaku bila bukan pengguna aktif (mis. pendaftaran mandiri) */
+  by?: string;
 };
 
 type AuditStore = {
@@ -51,7 +53,7 @@ export function AuditProvider({ children }: { children: ReactNode }) {
     const built: AuditEntry[] = list.map((e) => ({
       ...e,
       id: `al-${Date.now().toString(36)}-${++seq}`,
-      changedBy: actorName,
+      changedBy: e.by ?? actorName,
       changedAt: at,
     }));
     // entri yang dicatat lebih dulu tampil lebih atas dalam satu aksi

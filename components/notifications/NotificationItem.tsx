@@ -1,7 +1,7 @@
 "use client";
 
 import dayjs from "dayjs";
-import { CalendarOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseOutlined, ExclamationCircleOutlined, FileTextOutlined, MessageOutlined, StopOutlined, UserAddOutlined } from "@ant-design/icons";
+import { CalendarOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseOutlined, ExclamationCircleOutlined, FileTextOutlined, MessageOutlined, SafetyCertificateOutlined, StopOutlined, UserAddOutlined } from "@ant-design/icons";
 import type { ReactNode } from "react";
 import { NOTIF_META, type Notif, type NotifType } from "@/lib/notification-store";
 
@@ -16,6 +16,7 @@ const ICON: Record<NotifType, ReactNode> = {
   task_due_soon: <ClockCircleOutlined />,
   meeting_soon: <CalendarOutlined />,
   meeting_no_result: <FileTextOutlined />,
+  user_registered: <SafetyCertificateOutlined />,
 };
 
 /** "5 menit lalu", "2 jam lalu", "kemarin", atau tanggal. */

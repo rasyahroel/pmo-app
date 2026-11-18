@@ -3,7 +3,7 @@
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Alert, App, Avatar, Button, Col, Form, Input, Modal, Popconfirm, Row, Select, Space, Switch, Tag, Tooltip, Typography } from "antd";
-import { DeleteOutlined, EditOutlined, PlusOutlined, UserOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, UserOutlined } from "@ant-design/icons";
 import PageSkeleton from "@/components/layout/PageSkeleton";
 import DataTable from "@/components/common/DataTable";
 import { useMasterLists, useMasterStore } from "@/lib/master-store";
@@ -11,6 +11,7 @@ import { useCurrentUser } from "@/lib/acting-user";
 import { projects, type AppUser } from "@/lib/mock-data";
 import { ADMIN_ROLE, permissionsOf, useUserStore } from "@/lib/user-store";
 import { employeeUsage } from "@/lib/master-usage";
+import { useAuth } from "@/lib/auth-store";
 
 const { Text } = Typography;
 
@@ -47,6 +48,8 @@ function UsersContent() {
   const params = useSearchParams();
   const { users, roles, addUser, updateUser, deleteUser, setUserActive } = useUserStore();
   const { employees, updateEmployee } = useMasterStore();
+  const { adminResetPassword } = useAuth();
+  const { modal } = App.useApp();
   const { masterDirektorat, getSubditOptions } = useMasterLists();
   const [editing, setEditing] = useState<Editing | null>(null);
   const [roleFilter, setRoleFilter] = useState<string>(params.get("role") ?? "all");
@@ -130,7 +133,7 @@ function UsersContent() {
         showIcon
         style={{ marginBottom: 12 }}
         title="Akun login aplikasi, terpisah dari Master Pegawai."
-        description="Hubungkan akun ke pegawai agar orangnya dikenali sebagai PMO/Developer di project. Login dan password belum aktif di versi uji, jadi hak akses belum ditegakkan; data tersimpan di memori."
+        description="Hubungkan akun ke pegawai agar orangnya dikenali sebagai PMO/Developer di project. Pendaftaran mandiri masuk sebagai “Menunggu persetujuan” dan harus kamu setujui. Login memakai password awal yang wajib diganti di login pertama. Data masih tersimpan di memori."
       />
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
         <StatCard label="Semua pengguna" value={counts.all} on={status === "all"} onClick={() => setStatus("all")} />
@@ -172,7 +175,7 @@ function UsersContent() {
                 <Avatar size="small" icon={<UserOutlined />} style={{ opacity: r.active ? 1 : 0.45 }} />
                 <div>
                   <div style={{ fontWeight: 500, color: r.active ? undefined : "#8A90A2" }}>
-                    {v} {r.id === currentUser.id && <Tag color="cyan" style={{ marginInlineStart: 4 }}>Anda</Tag>}
+                    {v} {r.id === currentUser.id && <Tag color="cyan" style={{ marginInlineStart: 4 }}>Anda</Tag>}{r.pending && <Tag color="warning" style={{ marginInlineStart: 4 }}>Menunggu persetujuan</Tag>}
                   </div>
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     @{r.username} · {r.email}
@@ -234,13 +237,46 @@ function UsersContent() {
           },
           {
             title: "Aksi",
-            width: 100,
+            width: 190,
             sortable: false,
             searchable: false,
             render: (_: unknown, r: AppUser) => {
               const why = deleteBlock(r);
               return (
                 <Space>
+                  {r.pending && (
+                    <Button
+                      size="small"
+                      type="primary"
+                      onClick={() => {
+                        const res = setUserActive(r.id, true);
+                        if (!res.ok) message.error(res.reason);
+                        else message.success(`${r.name} disetujui dan diaktifkan. Cek role-nya bila perlu.`);
+                      }}
+                    >
+                      Setujui
+                    </Button>
+                  )}
+                  <Tooltip title="Reset password">
+                    <Button
+                      size="small"
+                      icon={<KeyOutlined />}
+                      aria-label={`Reset password ${r.name}`}
+                      onClick={() =>
+                        modal.confirm({
+                          title: `Reset password ${r.name}?`,
+                          content: "Password lama tidak berlaku lagi. Kamu akan mendapat password sementara; pengguna wajib menggantinya saat login berikutnya.",
+                          okText: "Reset",
+                          cancelText: "Batal",
+                          onOk: () => {
+                            const res = adminResetPassword(r.id);
+                            if (!res.ok) return void message.error(res.reason);
+                            modal.success({ title: "Password sementara", content: <div>Berikan ke <b>{r.name}</b> lewat jalur aman. Hanya ditampilkan sekali.<br /><Text code copyable>{res.tempPassword}</Text></div> });
+                          },
+                        })
+                      }
+                    />
+                  </Tooltip>
                   <Button size="small" icon={<EditOutlined />} aria-label={`Ubah ${r.name}`} onClick={() => setEditing({ mode: "edit", user: r })} />
                   {why ? (
                     <Tooltip title={why}>
